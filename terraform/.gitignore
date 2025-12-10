@@ -1,0 +1,10 @@
+gcp_cloud_env.sh
+gcp_cloud_env.sh
+
+/terraform/modules/db/terraform.tfvars
+/terraform/terraform.tfvars
+
+.terraform/
+*.tfstate
+*.tfstate.*
+.terraform.lock.hcl
