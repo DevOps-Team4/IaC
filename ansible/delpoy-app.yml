@@ -1,0 +1,195 @@
+---
+# INSTALL DOCKER ON FRONTEND & BACKEND
+
+- hosts: frontend,backend
+  become: yes
+  vars:
+    ghcr_user: "{{ lookup('env', 'GHCR_USER') }}"
+    ghcr_token: "{{ lookup('env', 'GHCR_TOKEN') }}"
+
+  tasks:
+    - name: Install apt prerequisites
+      apt:
+        name:
+          - ca-certificates
+          - curl
+          - gnupg
+          - lsb-release
+          - apt-transport-https
+        state: present
+        update_cache: yes
+
+    - name: Create keyrings directory
+      file:
+        path: /etc/apt/keyrings
+        state: directory
+        mode: '0755'
+
+    - name: Add Docker GPG key
+      shell: |
+        curl -fsSL https://download.docker.com/linux/ubuntu/gpg | \
+        gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+      args:
+        creates: /etc/apt/keyrings/docker.gpg
+
+    - name: Set permissions on Docker GPG key
+      file:
+        path: /etc/apt/keyrings/docker.gpg
+        mode: '0644'
+
+    - name: Add Docker repository
+      apt_repository:
+        repo: "deb [arch=amd64 signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable"
+        state: present
+        filename: docker
+
+    - name: Install Docker
+      apt:
+        name:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+          - docker-buildx-plugin
+          - docker-compose-plugin
+        state: present
+        update_cache: yes
+
+    - name: Enable Docker
+      systemd:
+        name: docker
+        enabled: yes
+        state: started
+
+    - name: Login to GHCR
+      shell: echo "{{ ghcr_token }}" | docker login ghcr.io -u "{{ ghcr_user }}" --password-stdin
+      when: ghcr_user != "" and ghcr_token != ""
+
+
+# BACKEND: INSTALL POSTGRESQL
+
+- name: Setup PostgreSQL
+  hosts: backend
+  become: yes
+  vars:
+    postgres_user: "appuser"
+    postgres_password: "supersecretpassword"
+    postgres_db: "postgres-db"
+
+  tasks:
+    - name: Install PostgreSQL
+      apt:
+        name: postgresql
+        state: present
+        update_cache: yes
+
+    - name: Ensure PostgreSQL is running
+      systemd:
+        name: postgresql
+        enabled: yes
+        state: started
+
+    - name: Create database user
+      become_user: postgres
+      postgresql_user:
+        name: "{{ postgres_user }}"
+        password: "{{ postgres_password }}"
+        role_attr_flags: CREATEDB
+
+    - name: Create database
+      become_user: postgres
+      postgresql_db:
+        name: "{{ postgres_db }}"
+        owner: "{{ postgres_user }}"
+
+
+# BACKEND DEPLOYMENT (Docker package from GHCR)
+
+- name: Deploy Backend from GHCR
+  hosts: backend
+  become: yes
+  vars:
+    backend_image: "ghcr.io/devops-team4/todo-backend:3cb7d9b"
+
+  tasks:
+    - name: Pull backend image
+      shell: docker pull {{ backend_image }}
+
+    - name: Stop old backend container
+      shell: docker rm -f backend || true
+
+    - name: Run backend container
+      shell: |
+        docker run -d --name backend \
+        -p 8080:8080 \
+        -e SPRING_DATASOURCE_URL=jdbc:postgresql://localhost:5432/myapp \
+        -e SPRING_DATASOURCE_USERNAME=myuser \
+        -e SPRING_DATASOURCE_PASSWORD=mypassword \
+        {{ backend_image }}
+
+
+# FRONTEND DEPLOYMENT (Docker package from GHCR)
+
+- name: Deploy Frontend from GHCR
+  hosts: frontend
+  become: yes
+  vars:
+    frontend_image: "ghcr.io/devops-team4/todo-frontend:3cb7d9b"
+
+  tasks:
+    - name: Pull frontend image
+      shell: docker pull {{ frontend_image }}
+
+    - name: Stop old frontend container
+      shell: docker rm -f frontend || true
+
+    - name: Run frontend container
+      shell: |
+        docker run -d --name frontend \
+        -p 80:80 \
+        {{ frontend_image }}
+
+
+# FRONTEND NGINX WITH REVERSE PROXY
+
+- name: Setup Nginx reverse proxy on frontend
+  hosts: frontend
+  become: yes
+
+  tasks:
+    - name: Install Nginx
+      apt:
+        name: nginx
+        state: present
+        update_cache: yes
+
+    - name: Configure Nginx reverse proxy
+      copy:
+        dest: /etc/nginx/sites-available/default
+        content: |
+          server {
+              listen 80;
+              server_name _;
+
+              location /api/ {
+                  proxy_pass http://{{ groups['backend'][0] }}:8080/;
+                  proxy_set_header Host $host;
+                  proxy_set_header X-Real-IP $remote_addr;
+              }
+
+              location / {
+                  proxy_pass http://localhost:80;
+              }
+          }
+      notify: Reload Nginx
+
+    - name: Ensure Nginx is running
+      systemd:
+        name: nginx
+        enabled: yes
+        state: started
+
+  handlers:
+    - name: Reload Nginx
+      systemd:
+        name: nginx
+        state: reloaded

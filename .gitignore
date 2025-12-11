@@ -6,3 +6,6 @@
 *.tfstate.*
 .terraform.lock.hcl
 terraform-sa-key.json
+
+.idea/
+.vscode/

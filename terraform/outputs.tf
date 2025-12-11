@@ -40,6 +40,21 @@ output "router_name" {
   value       = module.nat_gateway.router_name
 }
 
+output "frontend_ip" {
+  description = "Frontend IP address"
+  value = google_compute_address.frontend_ip.address
+}
+
+output "backend_ip" {
+  description = "Backend IP address"
+  value = google_compute_address.backend_ip.address
+}
+
+output "kubernetes_ip" {
+  description = "Kubernetes IP address"
+  google_compute_address.kubernetes_ip.address
+}
+
 # Firewall Outputs
 output "firewall_rule_names" {
   description = "List of firewall rule names"
