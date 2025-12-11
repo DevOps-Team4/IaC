@@ -4,6 +4,11 @@ resource "google_compute_instance" "postgres" {
   zone         = var.zone
   tags         = var.tags
 
+  labels = {
+    application = "database"
+    role        = "postgres"
+  }
+
   boot_disk {
     initialize_params {
       image = var.os_image
