@@ -53,16 +53,5 @@ resource "google_compute_instance" "vm" {
   }
 }
 
-resource "google_compute_firewall" "allow_service" {
-  for_each = { for vm in var.vm_instances : vm.name => vm }
-  name    = "${each.value.name}-allow-ports"
-  network = var.network_name
-
-  allow {
-    protocol = "tcp"
-    ports    = [for port in each.value.ports : tostring(port)]
-  }
-
-  target_tags   = each.value.tags
-  source_ranges = ["0.0.0.0/0"]
-}
+# Firewall rules are handled by the dedicated firewall module
+# This prevents duplication and security issues

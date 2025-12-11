@@ -6,6 +6,10 @@ terraform {
       version = "~> 5.0"
     }
   }
+  
+  backend "gcs" {
+    # Configuration will be provided via -backend-config flag
+  }
 }
 
 provider "google" {

@@ -12,7 +12,7 @@ enable_nat_gateway  = true
 # Database configuration
 zone = "europe-west3-a"
 postgres_user = "postgres"
-postgres_password = "your-secure-password-here"
+postgres_password = "SecureStagePass2024!"
 
 # SSH Configuration - Add your SSH public keys here
 ssh_public_keys = [
@@ -26,7 +26,7 @@ ssh_public_keys = [
   # "ssh-rsa ...",
   
   # Key 4 - Marta Hentosh key
-  # "ssh-rsa ..."
+  "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQDXFvRMI7cF+Tk/uGOtnpuegNqXIwQ1qks0E8T4gK9c0WQVom3YImWEwk8BF4ORxpgrM5mhYQqA79eAZmlU1fChN2hB2KldLJQdi/2CbYONTB8ghI4x4QUdk1aSQZ9llxpUYZW4Za9jaxie+JNrXot01xP998brm2LYAn3il3jx8QGjT7c73BZa5Hy7WY34ck+4l9aJJdo2qOmQbvISJgcB+8Dpw2FD5pKusXahMVc3rWNDtTcoStSt9xbQZpdRZHIr+tWkDwxZrcBbrugzTWJHX2BNMI53uTsWZ5PqlguCT4Fwg4AOMZAo8l1jWBhHIBA8+6tEmn2H8v8Vwyo+MrvEfl6oLa2T2QR7xCpmj6ntYOjx18TciUBlxTiihUgpEV3Qc1b/KdbkJ6Vlubc8a4P0xXsbNbKR2QYWVXadqCTBdWXyoaLSqtATih1AHO0udDgsN2/5O/CQatJMcPXp0Cg5slwkjXBhjt7HofPv98M0smhKxSGUiBTBrxgTQWIu31Y0XCtf4nemKgS2RAi6lTZHNTOw71mgx1M1RZyrqc1UivwDXcU9dcqc5dY/asTQDkAhib1p0P6fiC1hzterUKQf/BmWNRHrrcXHPdM5uDJgDNExA9swhpvUQ1ZbGlIGrScFt+itFdAA0DTE0j5dhZ7MW5KIBqCSV18ROw+4Xfz7hQ== ubuntu"
 ]
 
 db = {
@@ -34,7 +34,7 @@ db = {
   machine_type = "e2-micro"
   public_ip    = false
   tags         = ["database", "postgres"]
-  docker_image = "postgres:13"  # Still needed for db module, will be handled by Ansible
+  docker_image = "postgres:13"  
   port         = 5432
   os_image     = "debian-cloud/debian-11"
   disk_size_gb = 20

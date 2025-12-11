@@ -8,7 +8,7 @@ set -euo pipefail
 
 TFVARS_FILE="values/stage.tfvars"
 PROPERTIES_FILE="backend/stage.properties"
-KEY_FILE="${1:-terraform-key}.json"
+KEY_FILE="${1:-terraform-sa-key.json}"
 
 # Extract values from stage.tfvars
 PROJECT_ID=$(grep -oP 'project_id\s*=\s*"\K[^"]+' "$TFVARS_FILE" || echo "")
@@ -21,7 +21,7 @@ BUCKET_PREFIX=$(grep -oP 'prefix\s*=\s*"\K[^"]+' "$PROPERTIES_FILE" || echo "")
 BUCKET_REGION=$(grep -oP 'region\s*=\s*"\K[^"]+' "$PROPERTIES_FILE" || echo "")
 
 # Service account configuration
-SERVICE_ACCOUNT_NAME="terraform-${ENVIRONMENT}-sa"
+SERVICE_ACCOUNT_NAME="terraform-sa"
 DESCRIPTION="Service account for Terraform in ${ENVIRONMENT} environment"
 
 #########################################################################
