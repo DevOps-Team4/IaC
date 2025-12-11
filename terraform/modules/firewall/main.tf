@@ -20,7 +20,7 @@ resource "google_compute_firewall" "frontend_web" {
   
   allow {
     protocol = "tcp"
-    ports    = ["80", "443", "8081"]
+    ports    = ["80", "443", "8081", "4200"]
   }
   
   source_ranges = ["0.0.0.0/0"]
