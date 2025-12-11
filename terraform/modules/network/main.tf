@@ -1,11 +1,11 @@
-# Enable required API (как я понял это в скрипте стартовом должно быть)
-# resource "google_project_service" "compute_api" {
-#   project = var.project_id
-#   service = "compute.googleapis.com"
+# Enable required API
+resource "google_project_service" "compute_api" {
+  project = var.project_id
+  service = "compute.googleapis.com"
   
-#   disable_dependent_services = true
-#   disable_on_destroy         = false
-# }
+  disable_dependent_services = true
+  disable_on_destroy         = false
+}
 
 # Only VPC module
 module "vpc" {

@@ -15,30 +15,30 @@ output "network_self_link" {
 
 output "public_subnet_name" {
   description = "Public subnet name"
-  value       = module.vpc.subnets_names[0]
+  value       = "${var.vpc_name}-public-${var.environment}"
 }
 
 output "public_subnet_id" {
-  description = "Public subnet ID"
-  value       = module.vpc.subnets_ids[0]
+  description = "Public subnet ID"  
+  value       = module.vpc.subnets["${var.region}/${var.vpc_name}-public-${var.environment}"].id
 }
 
 output "private_subnet_name" {
   description = "Private subnet name"
-  value       = module.vpc.subnets_names[1]
+  value       = "${var.vpc_name}-private-${var.environment}"
 }
 
 output "private_subnet_id" {
   description = "Private subnet ID"
-  value       = module.vpc.subnets_ids[1]
+  value       = module.vpc.subnets["${var.region}/${var.vpc_name}-private-${var.environment}"].id
 }
 
 output "public_subnet_cidr" {
   description = "Public subnet CIDR"
-  value       = module.vpc.subnets_ips[0]
+  value       = var.public_subnet_cidr
 }
 
 output "private_subnet_cidr" {
   description = "Private subnet CIDR"
-  value       = module.vpc.subnets_ips[1]
+  value       = var.private_subnet_cidr
 }
