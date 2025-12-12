@@ -31,13 +31,6 @@ This repository contains Terraform Infrastructure as Code (IaC) for deploying a 
 - **Service Account**: Production-ready authentication with minimal permissions
 - **Modular Design**: Reusable Terraform modules for different environments
 
-## 👥 Team Access
-
-The infrastructure supports SSH access for 4 team members:
-- **Ivan Kaliuzhnyi** - DevOps Lead
-- **Yevhen Naumchyk** - Backend Developer  
-- **Yuliia Ivanchuk** - Frontend Developer
-- **Marta Hentosh** - Database Administrator
 
 ## 📁 Repository Structure
 
