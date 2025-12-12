@@ -76,8 +76,9 @@ IaC/
 
 ### 📝 Pre-Setup Checklist
 - [ ] Create or select a GCP project
-- [ ] Enable billing for the project
+- [ ] Enable billing for the project  
 - [ ] Note down your project ID (you'll need it in step 2)
+- [ ] Think of a globally unique bucket name (e.g., `terraform-yourname-2025-bucket`)
 - [ ] Ensure you have Owner/Editor permissions on the project
 
 ## 🚀 Quick Start
@@ -98,7 +99,9 @@ gcloud auth login
 gcloud config set project YOUR-PROJECT-ID
 ```
 
-**⚠️ IMPORTANT**: Update the project ID in `values/stage.tfvars`:
+**⚠️ IMPORTANT**: Update configuration files before running the script:
+
+**A) Update project ID in `values/stage.tfvars`:**
 ```bash
 # Edit the configuration file
 nano values/stage.tfvars
@@ -106,6 +109,21 @@ nano values/stage.tfvars
 # Change this line to your project ID:
 project_id = "YOUR-PROJECT-ID"  # Replace terraform-test-480809 with your project
 ```
+
+**B) Update bucket name in `backend/stage.properties`:**
+```bash
+# Edit the backend configuration
+nano backend/stage.properties
+
+# Change to a globally unique bucket name:
+bucket = "terraform-YOUR-NAME-YYYY-MM-DD-bucket"  # Must be globally unique!
+prefix = "test-app/terraform"  # Can keep the same
+```
+
+💡 **Bucket Naming Tips:**
+- Include your name/company: `terraform-yourcompany-stage-bucket`  
+- Add date: `terraform-2025-12-12-yourname-bucket`
+- Keep it lowercase and use hyphens only
 
 ### 3. Run Production Setup Script
 ```bash
@@ -192,9 +210,20 @@ ssh_public_keys = [
 ```
 
 #### Backend Configuration (`backend/stage.properties`):
+
+**🚨 CRITICAL**: The bucket name must be globally unique across all GCP users:
+
 ```properties
-bucket = "terraform-11-12-2025-sytoss-bucket"
-prefix = "test-app/terraform"
+bucket = "YOUR-UNIQUE-BUCKET-NAME"    # ⚠️ MUST BE GLOBALLY UNIQUE!
+prefix = "test-app/terraform"         # Can keep as-is
+```
+
+**Bucket Naming Examples:**
+```properties
+# Good examples (replace with your info):
+bucket = "terraform-yourcompany-stage-2025"
+bucket = "tf-state-johnsmith-dev-bucket" 
+bucket = "myproject-terraform-state-2025-12"
 ```
 
 ### Phase 3: Terraform Operations
@@ -357,10 +386,13 @@ gcloud projects get-iam-policy terraform-test-480809 \
 terraform force-unlock LOCK_ID
 ```
 
-**3. Backend Initialization Errors**
+**3. Backend/Bucket Errors**
 ```bash
-# Verify bucket exists
-gsutil ls gs://terraform-11-12-2025-sytoss-bucket
+# Check if bucket name is available (should return 404 if available)
+gsutil ls gs://your-bucket-name
+
+# Verify bucket exists after creation
+gsutil ls gs://your-bucket-name
 
 # Check backend configuration
 cat backend/stage.properties
