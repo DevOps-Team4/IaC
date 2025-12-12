@@ -64,14 +64,21 @@ IaC/
 - **Bash** shell (for setup script)
 
 ### GCP Requirements
-- Active GCP project with billing enabled
-- Project Owner or Editor permissions
-- APIs that will be automatically enabled:
+- **Active GCP project** with billing enabled
+- **Project Owner or Editor** permissions for your user account
+- **Project ID** - You'll need to update this in configuration files
+- APIs that will be automatically enabled by the setup script:
   - Compute Engine API
   - Cloud Storage API  
   - IAM Credentials API
   - Secret Manager API
   - And others (handled by setup script)
+
+### 📝 Pre-Setup Checklist
+- [ ] Create or select a GCP project
+- [ ] Enable billing for the project
+- [ ] Note down your project ID (you'll need it in step 2)
+- [ ] Ensure you have Owner/Editor permissions on the project
 
 ## 🚀 Quick Start
 
@@ -82,10 +89,22 @@ git checkout network-sg-natgw
 cd IaC/terraform
 ```
 
-### 2. Authenticate with GCP
+### 2. Configure Your GCP Project
 ```bash
+# Authenticate with GCP
 gcloud auth login
-gcloud config set project terraform-test-480809 (name of your project here)
+
+# Set your project (replace with your actual project ID)
+gcloud config set project YOUR-PROJECT-ID
+```
+
+**⚠️ IMPORTANT**: Update the project ID in `values/stage.tfvars`:
+```bash
+# Edit the configuration file
+nano values/stage.tfvars
+
+# Change this line to your project ID:
+project_id = "YOUR-PROJECT-ID"  # Replace terraform-test-480809 with your project
 ```
 
 ### 3. Run Production Setup Script
@@ -144,9 +163,12 @@ roles/serviceusage.serviceUsageAdmin # API management
 ### Phase 2: Infrastructure Configuration
 
 #### Environment Variables (`values/stage.tfvars`):
+
+**🚨 CRITICAL**: Before running any commands, update these values for your environment:
+
 ```hcl
-project_id = "terraform-test-480809"
-region     = "europe-west3"
+project_id = "YOUR-PROJECT-ID"    # ⚠️ CHANGE THIS to your GCP project ID
+region     = "europe-west3"       # Optional: Change to your preferred region
 environment = "stage"
 
 # VPC Network configuration
@@ -306,7 +328,19 @@ terraform apply -var-file=values/stage.tfvars
 
 ### Common Issues
 
-**1. Permission Errors**
+**1. Project Configuration Errors**
+```bash
+# Check your current project
+gcloud config get-value project
+
+# List available projects
+gcloud projects list
+
+# Set correct project
+gcloud config set project YOUR-PROJECT-ID
+```
+
+**2. Permission Errors**
 ```bash
 # Verify service account authentication
 gcloud auth application-default print-access-token
