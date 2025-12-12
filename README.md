@@ -78,6 +78,7 @@ IaC/
 ### 1. Clone Repository
 ```bash
 git clone https://github.com/DevOps-Team4/IaC.git
+git checkout network-sg-natgw
 cd IaC/terraform
 ```
 
