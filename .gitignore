@@ -6,3 +6,4 @@
 *.tfstate.*
 .terraform.lock.hcl
 terraform-sa-key.json
+terraform-sa-key-backup.json
