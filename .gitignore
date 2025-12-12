@@ -9,3 +9,5 @@ terraform-sa-key.json
 
 .idea/
 .vscode/
+
+terraform/.ssh

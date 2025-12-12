@@ -1,0 +1,7 @@
+---
+# Підключаємо секрети з vault
+ansible_user: "{{ vault_ansible_user }}"
+ansible_ssh_private_key_file: "{{ vault_ansible_private_key_path }}"
+
+team_users: "{{ vault_team_users }}"
+team_ssh_keys: "{{ vault_team_ssh_keys }}"

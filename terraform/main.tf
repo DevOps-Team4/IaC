@@ -25,6 +25,17 @@ provider "google" {
   region  = var.region
 }
 
+resource "tls_private_key" "provisioning_key" {
+  algorithm = "RSA"
+  rsa_bits  = 4096
+}
+
+resource "local_file" "provisioning_private_key" {
+  content         = tls_private_key.provisioning_key.private_key_pem
+  filename        = "${path.root}/.ssh/provisioning_key"
+  file_permission = "0600"
+}
+
 # 1. Network Module - Creates VPC + Subnets + Routes
 module "network" {
   source = "./modules/network"
@@ -81,6 +92,9 @@ module "db" {
   postgres_password = var.postgres_password
   postgres_db       = var.db.postgres_db
   
+  provisioning_user       = "provisioning"
+  provisioning_public_key = tls_private_key.provisioning_key.public_key_openssh
+
   depends_on = [module.network]
 }
 
@@ -99,7 +113,29 @@ module "instances" {
   ]
   vm_instances    = var.vm_instances
   network_name    = module.network.network_name
-  ssh_public_keys = var.ssh_public_keys
+  #ssh_public_keys = var.ssh_public_keys
+  provisioning_public_key = tls_private_key.provisioning_key.public_key_openssh
+  provisioning_user       = "provisioning"
   
   depends_on = [module.network]
 }
+
+resource "local_file" "ansible_inventory" {
+  filename = "${path.module}/../ansible/inventory.ini"
+
+  content = templatefile("${path.module}/inventory.tpl", {
+    bastion_ip          = module.instances.bastion_ip
+    frontend_private_ip = module.instances.frontend_private_ip
+    backend_private_ip  = module.instances.backend_private_ip
+    db_ip               = module.db.private_ip
+
+    ssh_user     = "provisioning"
+    ssh_key_path = local_file.provisioning_private_key.filename
+
+    postgres_user       = var.postgres_user
+    postgres_password   = var.postgres_password
+    postgres_db         = var.db.postgres_db
+    postgres_host       = module.db.private_ip
+  })
+}
+

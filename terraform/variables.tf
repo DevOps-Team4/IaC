@@ -88,8 +88,8 @@ variable "vm_instances" {
   }))
 }
 
-variable "ssh_public_keys" {
-  description = "List of SSH public keys for accessing instances"
-  type        = list(string)
-  default     = []
-}
+#variable "ssh_public_keys" {
+#  description = "List of SSH public keys for accessing instances"
+# type        = list(string)
+# default     = []
+#}

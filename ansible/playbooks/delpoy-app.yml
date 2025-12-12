@@ -71,9 +71,10 @@
   hosts: backend
   become: yes
   vars:
-    postgres_user: "appuser"
-    postgres_password: "supersecretpassword"
-    postgres_db: "postgres-db"
+    postgres_user: "{{ postgres_user }}"
+    postgres_password: "{{ postgres_password }}"
+    postgres_db: "{{ postgres_db }}"
+
 
   tasks:
     - name: Install PostgreSQL

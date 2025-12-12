@@ -3,14 +3,6 @@
   hosts: bastion
   become: yes
 
-  vars:
-    bastion_user: ""
-    bastion_ssh_keys:
-    - "ssh-rsa 1"
-    - "ssh-rsa 2"
-    - "ssh-rsa 3"
-    - "ssh-rsa 4"
-
   tasks:
     - name: Create team users
       user:
@@ -50,7 +42,6 @@
         line: 'PermitRootLogin no'
       notify: Restart SSH
 
-    # Видаляємо тимчасового користувача
     - name: Remove provisioning user
       user:
         name: provisioning
