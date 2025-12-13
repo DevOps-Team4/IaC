@@ -87,9 +87,3 @@ variable "vm_instances" {
     disk_size_gb = number
   }))
 }
-
-#variable "ssh_public_keys" {
-#  description = "List of SSH public keys for accessing instances"
-# type        = list(string)
-# default     = []
-#}

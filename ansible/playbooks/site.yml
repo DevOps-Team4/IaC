@@ -1,0 +1,9 @@
+---
+
+#- name: Configure all infrastructure
+#  hosts: all
+#  gather_facts: yes
+
+- import_playbook: bastion.yml
+#- import_playbook: database.yml
+- import_playbook: deploy-app.yml

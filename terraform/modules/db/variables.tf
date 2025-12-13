@@ -81,6 +81,6 @@ variable "provisioning_user" {
 }
 
 variable "provisioning_public_key" {
-  type        = string
-  description = "Public key for provisioning user"
+ type        = string
+ description = "Public key for provisioning user"
 }

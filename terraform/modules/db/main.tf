@@ -1,16 +1,3 @@
-# Генеруємо тимчасовий SSH ключ для provisioning
-#resource "tls_private_key" "provisioning_key" {
- # algorithm = "RSA"
- # rsa_bits  = 4096
-#}
-
-# Зберігаємо приватний ключ локально (для Ansible)
-#resource "local_file" "provisioning_private_key" {
- # content         = tls_private_key.provisioning_key.private_key_pem
- # filename        = "${path.root}/.ssh/provisioning_key"
- # file_permission = "0600"
-#}
-
 resource "google_compute_instance" "postgres" {
   name         = var.name
   machine_type = var.machine_type
@@ -44,16 +31,27 @@ resource "google_compute_instance" "postgres" {
     scopes = ["cloud-platform"]
   }
 
-  # Додаємо тимчасовий SSH ключ для provisioning
- #metadata = {
-   # ssh-keys = "provisioning:${tls_private_key.provisioning_key.public_key_openssh}"
-  #}
+  metadata = {
+    ssh-keys = "${var.provisioning_user}:${var.provisioning_public_key}"
+  }
 
-  metadata_startup_script = templatefile("${path.module}/startup.sh", {
-    DB_PORT           = var.db_port
-    POSTGRES_USER     = var.postgres_user
-    POSTGRES_PASSWORD = var.postgres_password
-    POSTGRES_DB       = var.postgres_db
-    DOCKER_IMAGE      = var.docker_image
-  })
+  metadata_startup_script = <<-EOF
+    #!/bin/bash
+    # Basic system setup - packages will be installed via Ansible
+    apt-get update
+    
+    # Create user provisioning і sudo without password
+    useradd -m -s /bin/bash ${var.provisioning_user} || true
+    mkdir -p /home/${var.provisioning_user}/.ssh
+    echo "${var.provisioning_public_key}" > /home/${var.provisioning_user}/.ssh/authorized_keys
+    chmod 600 /home/${var.provisioning_user}/.ssh/authorized_keys
+    chown -R ${var.provisioning_user}:${var.provisioning_user} /home/${var.provisioning_user}/.ssh
+
+    echo "${var.provisioning_user} ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/${var.provisioning_user}
+    chmod 440 /etc/sudoers.d/${var.provisioning_user}
+
+    # Create marker file to indicate VM is ready for Ansible
+    touch /tmp/terraform-setup-complete
+    echo "Instance postgres_db ready for Ansible configuration" > /var/log/terraform-setup.log
+  EOF
 }

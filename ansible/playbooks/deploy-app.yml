@@ -1,7 +1,7 @@
 ---
 # INSTALL DOCKER ON FRONTEND & BACKEND
 
-- hosts: frontend,backend
+- hosts: web-server,app-server
   become: yes
   vars:
     ghcr_user: "{{ lookup('env', 'GHCR_USER') }}"
@@ -25,9 +25,14 @@
         state: directory
         mode: '0755'
 
+    - name: Detect OS distribution
+      command: lsb_release -is
+      register: os_dist
+      changed_when: false
+
     - name: Add Docker GPG key
       shell: |
-        curl -fsSL https://download.docker.com/linux/ubuntu/gpg | \
+        curl -fsSL https://download.docker.com/linux/{{ os_dist.stdout | lower }}/gpg | \
         gpg --dearmor -o /etc/apt/keyrings/docker.gpg
       args:
         creates: /etc/apt/keyrings/docker.gpg
@@ -39,7 +44,7 @@
 
     - name: Add Docker repository
       apt_repository:
-        repo: "deb [arch=amd64 signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable"
+        repo: "deb [arch=amd64 signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/{{ os_dist.stdout | lower }} {{ ansible_distribution_release }} stable"
         state: present
         filename: docker
 
@@ -65,21 +70,22 @@
       when: ghcr_user != "" and ghcr_token != ""
 
 
-# BACKEND: INSTALL POSTGRESQL
+# DATABASE SETUP ON DEDICATED DB SERVER
 
-- name: Setup PostgreSQL
-  hosts: backend
+- name: Setup PostgreSQL on database server
+  hosts: postgres-db
   become: yes
   vars:
-    postgres_user: "{{ postgres_user }}"
-    postgres_password: "{{ postgres_password }}"
-    postgres_db: "{{ postgres_db }}"
-
+    postgres_password: "12345678"
+    postgres_db: "testdb"
 
   tasks:
-    - name: Install PostgreSQL
+    - name: Install PostgreSQL and Python psycopg2
       apt:
-        name: postgresql
+        name:
+          - postgresql
+          - postgresql-contrib
+          - python3-psycopg2
         state: present
         update_cache: yes
 
@@ -89,27 +95,58 @@
         enabled: yes
         state: started
 
-    - name: Create database user
+    - name: Set postgres user password
       become_user: postgres
       postgresql_user:
-        name: "{{ postgres_user }}"
+        name: postgres
         password: "{{ postgres_password }}"
-        role_attr_flags: CREATEDB
 
     - name: Create database
       become_user: postgres
       postgresql_db:
         name: "{{ postgres_db }}"
-        owner: "{{ postgres_user }}"
+        owner: postgres
+        encoding: UTF-8
 
+    - name: Configure PostgreSQL to listen on all interfaces
+      lineinfile:
+        path: /etc/postgresql/*/main/postgresql.conf
+        regexp: '^#?listen_addresses'
+        line: "listen_addresses = '*'"
+      notify: Restart PostgreSQL
 
-# BACKEND DEPLOYMENT (Docker package from GHCR)
+    - name: Allow connections from backend server
+      lineinfile:
+        path: /etc/postgresql/*/main/pg_hba.conf
+        line: "host    all             all             10.1.2.3/32            md5"
+        insertafter: '^# IPv4 local connections:'
+      notify: Restart PostgreSQL
+
+    - name: Allow connections from local network
+      lineinfile:
+        path: /etc/postgresql/*/main/pg_hba.conf
+        line: "host    all             all             10.1.0.0/16            md5"
+        insertafter: '^# IPv4 local connections:'
+      notify: Restart PostgreSQL
+
+  handlers:
+    - name: Restart PostgreSQL
+      systemd:
+        name: postgresql
+        state: restarted
+
+# BACKEND DEPLOYMENT
 
 - name: Deploy Backend from GHCR
-  hosts: backend
+  hosts: app-server
   become: yes
   vars:
     backend_image: "ghcr.io/devops-team4/todo-backend:3cb7d9b"
+    db_host: "10.1.2.3"
+    db_port: "5432"
+    db_name: "testdb"
+    db_user: "postgres"
+    db_password: "12345678"
 
   tasks:
     - name: Pull backend image
@@ -122,16 +159,16 @@
       shell: |
         docker run -d --name backend \
         -p 8080:8080 \
-        -e SPRING_DATASOURCE_URL=jdbc:postgresql://localhost:5432/myapp \
-        -e SPRING_DATASOURCE_USERNAME=myuser \
-        -e SPRING_DATASOURCE_PASSWORD=mypassword \
+        -e SPRING_DATASOURCE_URL=jdbc:postgresql://{{ db_host }}:{{ db_port }}/{{ db_name }} \
+        -e SPRING_DATASOURCE_USERNAME={{ db_user }} \
+        -e SPRING_DATASOURCE_PASSWORD={{ db_password }} \
         {{ backend_image }}
 
 
-# FRONTEND DEPLOYMENT (Docker package from GHCR)
+# FRONTEND DEPLOYMENT
 
 - name: Deploy Frontend from GHCR
-  hosts: frontend
+  hosts: web-server
   become: yes
   vars:
     frontend_image: "ghcr.io/devops-team4/todo-frontend:3cb7d9b"
@@ -146,14 +183,14 @@
     - name: Run frontend container
       shell: |
         docker run -d --name frontend \
-        -p 80:80 \
+        -p 3000:80 \
         {{ frontend_image }}
 
 
-# FRONTEND NGINX WITH REVERSE PROXY
+# NGINX REVERSE PROXY
 
 - name: Setup Nginx reverse proxy on frontend
-  hosts: frontend
+  hosts: web-server
   become: yes
 
   tasks:
@@ -172,13 +209,17 @@
               server_name _;
 
               location /api/ {
-                  proxy_pass http://{{ groups['backend'][0] }}:8080/;
+                  proxy_pass http://10.1.2.2:8080/;
                   proxy_set_header Host $host;
                   proxy_set_header X-Real-IP $remote_addr;
+                  proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                  proxy_set_header X-Forwarded-Proto $scheme;
               }
 
               location / {
-                  proxy_pass http://localhost:80;
+                  proxy_pass http://localhost:3000;
+                  proxy_set_header Host $host;
+                  proxy_set_header X-Real-IP $remote_addr;
               }
           }
       notify: Reload Nginx

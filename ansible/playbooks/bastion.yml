@@ -1,6 +1,6 @@
 ---
 - name: Bastion basic configuration
-  hosts: bastion
+  hosts: bastion-host
   become: yes
 
   tasks:
@@ -41,13 +41,6 @@
         regexp: '^#?PermitRootLogin'
         line: 'PermitRootLogin no'
       notify: Restart SSH
-
-    - name: Remove provisioning user
-      user:
-        name: provisioning
-        state: absent
-        remove: yes
-      ignore_errors: yes
 
   handlers:
     - name: Restart SSH

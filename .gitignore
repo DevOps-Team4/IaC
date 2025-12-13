@@ -10,4 +10,6 @@ terraform-sa-key.json
 .idea/
 .vscode/
 
-terraform/.ssh
+ansible/inventory.ini
+ansible/.vault_pass
+ansible/*.retry

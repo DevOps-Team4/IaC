@@ -35,9 +35,3 @@ variable "provisioning_user" {
   type        = string
   description = "User for Ansible provisioning"
 }
-
-#variable "ssh_public_keys" {
-#  type        = list(string)
-#  description = "List of SSH public keys for accessing instances"
-#  default     = []
-#}

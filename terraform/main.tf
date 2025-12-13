@@ -113,9 +113,9 @@ module "instances" {
   ]
   vm_instances    = var.vm_instances
   network_name    = module.network.network_name
-  #ssh_public_keys = var.ssh_public_keys
-  provisioning_public_key = tls_private_key.provisioning_key.public_key_openssh
+
   provisioning_user       = "provisioning"
+  provisioning_public_key = tls_private_key.provisioning_key.public_key_openssh
   
   depends_on = [module.network]
 }
@@ -138,4 +138,3 @@ resource "local_file" "ansible_inventory" {
     postgres_host       = module.db.private_ip
   })
 }
-
