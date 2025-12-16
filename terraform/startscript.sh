@@ -207,7 +207,7 @@ fi
 #########################################################################
 # Add key file to .gitignore
 #########################################################################
-GITIGNORE_FILE=".gitignore"
+GITIGNORE_FILE="../.gitignore"
 if [[ ! -f "$GITIGNORE_FILE" ]]; then
     touch "$GITIGNORE_FILE"
 fi
