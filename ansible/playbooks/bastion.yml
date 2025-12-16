@@ -35,6 +35,14 @@
         line: 'PasswordAuthentication no'
       notify: Restart SSH
 
+    - name: Ensure SSH TCP forwarding is enabled (required for ProxyJump)
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^#?AllowTcpForwarding'
+        line: 'AllowTcpForwarding yes'
+      notify: Restart SSH
+
+
     - name: Disable root login
       lineinfile:
         path: /etc/ssh/sshd_config
