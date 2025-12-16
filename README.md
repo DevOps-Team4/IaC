@@ -23,31 +23,33 @@ The token must have read:packages permission.
 
 ## Clone repository to WSL console
 Enter your WSl console and clone the repository like this.
-
+```bash
 mkdir -p ~/<your-folder-on-WSL>
 cd ~/<your-folder-on-WSL>
 git clone <your-repo-url> 
-
+```
 OR you can can copy already cloned repo like this 
-
+```bash
 cp -r /mnt/d/<your-local-folder> ~/<your-folder-on-WSL>
 cd <your-folder-on-WSL>/ansible
-
+```
 ## Run Ansible
 Run the playbook from ansible directory.
-
+```bash
 ansible-playbook -i inventory.ini playbooks/site.yml --vault-password-file=.vault_pass -v
-
+```
 ## Application access
 Open browser and go to:
+```bash
 http://WEB_SERVER_IP
-
+```
 Frontend will be served on port 80.
 Backend API is available via /api.
 
 Example:
+```bash
 http://WEB_SERVER_IP/api/tutorials
-
+```
 ## VM restart behavior
 You can stop and start VMs.
 
@@ -62,6 +64,7 @@ If you decide to stop VMs manually, you will need to change inventory.ini manual
 
 ## Inventory configuration
 This is an example of correct inventory.ini
+```bash
 [bastion-host]
 bastion ansible_host=<bastion_ip>
 
@@ -81,3 +84,4 @@ ansible_ssh_common_args='-F ~/.ssh/config'
 postgres_user=<postgres_user>
 postgres_password=<postgres_password>
 postgres_db=<postgres_db>
+```
