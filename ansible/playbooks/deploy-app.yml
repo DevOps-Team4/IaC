@@ -1,0 +1,302 @@
+---
+# INSTALL DOCKER ON FRONTEND & BACKEND
+
+- hosts: web-server,app-server
+  become: yes
+  vars:
+    ghcr_user: "{{ lookup('env', 'GHCR_USER') }}"
+    ghcr_token: "{{ lookup('env', 'GHCR_TOKEN') }}"
+
+  tasks:
+    - name: Install apt prerequisites
+      apt:
+        name:
+          - ca-certificates
+          - curl
+          - gnupg
+          - lsb-release
+          - apt-transport-https
+        state: present
+        update_cache: yes
+
+    - name: Create keyrings directory
+      file:
+        path: /etc/apt/keyrings
+        state: directory
+        mode: '0755'
+
+    - name: Detect OS distribution
+      command: lsb_release -is
+      register: os_dist
+      changed_when: false
+
+    - name: Add Docker GPG key
+      shell: |
+        curl -fsSL https://download.docker.com/linux/{{ os_dist.stdout | lower }}/gpg | \
+        gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+      args:
+        creates: /etc/apt/keyrings/docker.gpg
+
+    - name: Set permissions on Docker GPG key
+      file:
+        path: /etc/apt/keyrings/docker.gpg
+        mode: '0644'
+
+    - name: Add Docker repository
+      apt_repository:
+        repo: "deb [arch=amd64 signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/{{ os_dist.stdout | lower }} {{ ansible_distribution_release }} stable"
+        state: present
+        filename: docker
+
+    - name: Install Docker
+      apt:
+        name:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+          - docker-buildx-plugin
+          - docker-compose-plugin
+        state: present
+        update_cache: yes
+
+    - name: Enable Docker
+      systemd:
+        name: docker
+        enabled: yes
+        state: started
+
+    - name: Login to GHCR
+      shell: echo "{{ ghcr_token }}" | docker login ghcr.io -u "{{ ghcr_user }}" --password-stdin
+      when: ghcr_user != "" and ghcr_token != ""
+      no_log: true
+
+# DATABASE SETUP ON DEDICATED DB SERVER
+
+- name: Setup PostgreSQL on database server
+  hosts: postgres-db
+  become: yes
+
+  tasks:
+    - name: Install PostgreSQL and Python psycopg2
+      apt:
+        name:
+          - postgresql
+          - postgresql-contrib
+          - python3-psycopg2
+        state: present
+        update_cache: yes
+
+    - name: Ensure PostgreSQL is running
+      systemd:
+        name: postgresql
+        enabled: yes
+        state: started
+
+    - name: Install ACL tools (needed for become_user postgres)
+      apt:
+        name: acl
+        state: present
+        update_cache: yes
+
+    - name: Set postgres user password
+      become_user: postgres
+      postgresql_user:
+        name: postgres
+        password: "{{ postgres_password }}"
+
+    - name: Create database
+      become_user: postgres
+      postgresql_db:
+        name: "{{ postgres_db }}"
+        owner: postgres
+        encoding: UTF-8
+
+    - name: Detect active PostgreSQL version
+      shell: "psql -V | awk '{print $3}' | cut -d. -f1"
+      register: pg_major
+      changed_when: false
+
+    - name: Set PostgreSQL config file paths
+      set_fact:
+        pg_conf: "/etc/postgresql/{{ pg_major.stdout }}/main/postgresql.conf"
+        pg_hba:  "/etc/postgresql/{{ pg_major.stdout }}/main/pg_hba.conf"
+
+    - name: Configure PostgreSQL to listen on all interfaces
+      lineinfile:
+        path: "{{ pg_conf }}"
+        regexp: '^#?listen_addresses\s*='
+        line: "listen_addresses = '*'"
+      notify: Restart PostgreSQL
+
+    - name: Allow connections from backend server
+      lineinfile:
+        path: "{{ pg_hba }}"
+        line: "host    all             all             {{ hostvars[groups['app-server'][0]].ansible_host }}/32            md5"
+        insertafter: '^# IPv4 local connections:'
+      notify: Restart PostgreSQL
+
+    - name: Allow connections from local network
+      lineinfile:
+        path: "{{ pg_hba }}"
+        line: "host    all             all             10.1.0.0/16            md5"
+        insertafter: '^# IPv4 local connections:'
+      notify: Restart PostgreSQL
+
+  handlers:
+    - name: Restart PostgreSQL
+      systemd:
+        name: postgresql
+        state: restarted
+
+# BACKEND DEPLOYMENT
+
+- name: Deploy Backend from GHCR
+  hosts: app-server
+  become: yes
+  vars:
+    backend_image: "ghcr.io/devops-team4/todo-backend:01c3a57"
+    db_host: "{{ postgres_host | default(hostvars[groups['postgres-db'][0]].ansible_host) }}"
+    db_port: "{{ postgres_port | default('5432') }}"
+    db_name: "{{ postgres_db }}"
+    db_user: "{{ postgres_user | default('postgres') }}"
+    db_password: "{{ postgres_password }}"
+
+  tasks:
+    - name: Pull backend image
+      shell: docker pull {{ backend_image }}
+
+    - name: Stop old backend container
+      shell: docker rm -f backend || true
+      changed_when: false
+
+    - name: Run backend container
+      shell: |
+        docker run -d --restart unless-stopped --name backend \
+        -p 8080:8080 \
+        -e SPRING_DATASOURCE_URL=jdbc:postgresql://{{ db_host }}:{{ db_port }}/{{ db_name }} \
+        -e SPRING_DATASOURCE_USERNAME={{ db_user }} \
+        -e SPRING_DATASOURCE_PASSWORD={{ db_password }} \
+        {{ backend_image }}
+
+
+# FRONTEND DEPLOYMENT
+
+- name: Deploy Frontend from GHCR
+  hosts: web-server
+  become: yes
+  vars:
+    frontend_image: "ghcr.io/devops-team4/todo-frontend:01c3a57"
+
+  tasks:
+    - name: Pull frontend image
+      shell: docker pull {{ frontend_image }}
+
+    - name: Stop old frontend container
+      shell: docker rm -f frontend || true
+      changed_when: false
+
+    - name: Create directory for frontend nginx override
+      file:
+        path: /opt/todo-frontend
+        state: directory
+        mode: "0755"
+
+    - name: Override nginx config inside frontend container (serve SPA only)
+      copy:
+        dest: /opt/todo-frontend/default.conf
+        mode: "0644"
+        content: |
+          server {
+            listen 80;
+            server_name _;
+            root /usr/share/nginx/html;
+            index index.html;
+
+            location / {
+              try_files $uri $uri/ /index.html;
+            }
+          }
+
+    - name: Run frontend container
+      shell: |
+        docker run -d --name frontend \
+        --restart unless-stopped \
+        -p 3000:80 \
+        -v /opt/todo-frontend/default.conf:/etc/nginx/conf.d/default.conf:ro \
+        {{ frontend_image }}
+
+# NGINX REVERSE PROXY
+
+- name: Setup Nginx reverse proxy on frontend
+  hosts: web-server
+  become: yes
+
+  tasks:
+    - name: Install Nginx
+      apt:
+        name: nginx
+        state: present
+        update_cache: yes
+
+    - name: Configure Nginx reverse proxy
+      copy:
+        dest: /etc/nginx/sites-available/default
+        content: |
+          server {
+              listen 80;
+              server_name _;
+
+              location /api/ {
+                  proxy_pass http://{{ hostvars[groups['app-server'][0]].ansible_host }}:8080;
+                  proxy_set_header Host $host;
+                  proxy_set_header X-Real-IP $remote_addr;
+                  proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                  proxy_set_header X-Forwarded-Proto $scheme;
+              }
+
+              location / {
+                  proxy_pass http://localhost:3000;
+                  proxy_set_header Host $host;
+                  proxy_set_header X-Real-IP $remote_addr;
+              }
+          }
+
+    - name: Ensure default site is enabled
+      file:
+        src: /etc/nginx/sites-available/default
+        dest: /etc/nginx/sites-enabled/default
+        state: link
+        force: yes
+
+    - name: Validate nginx config
+      command: nginx -t
+      changed_when: false
+
+    - name: Reload nginx (always apply config)
+      systemd:
+        name: nginx
+        state: reloaded
+      changed_when: false
+
+    - name: Ensure Nginx is running
+      systemd:
+        name: nginx
+        enabled: yes
+        state: started
+
+    - name: Verify backend API is reachable through nginx (wait until ready)
+      uri:
+        url: "http://127.0.0.1/api/tutorials"
+        method: GET
+        status_code: [200, 204, 404, 502, 503]
+      register: api_check
+      until: api_check.status in [200, 204]
+      retries: 20
+      delay: 3
+      changed_when: false
+
+  handlers:
+    - name: Reload Nginx
+      systemd:
+        name: nginx
+        state: reloaded

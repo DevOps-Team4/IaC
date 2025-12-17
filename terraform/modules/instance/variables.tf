@@ -26,8 +26,12 @@ variable "network_name" {
   description = "VPC network name for instances"
 }
 
-variable "ssh_public_keys" {
-  type        = list(string)
-  description = "List of SSH public keys for accessing instances"
-  default     = []
+variable "provisioning_public_key" {
+  type        = string
+  description = "Public key for provisioning user (used by Ansible)"
+}
+
+variable "provisioning_user" {
+  type        = string
+  description = "User for Ansible provisioning"
 }

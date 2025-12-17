@@ -45,3 +45,19 @@ output "firewall_rule_names" {
   description = "List of firewall rule names"
   value       = module.firewall.firewall_rule_names
 }
+
+output "instance_ips" {
+  value = module.instances.instance_ips
+}
+
+output "db_private_ip" {
+  value = module.db.private_ip
+}
+
+output "provisioning_user" {
+  value = "provisioning"
+}
+
+output "provisioning_key_path" {
+  value = local_file.provisioning_private_key.filename
+}

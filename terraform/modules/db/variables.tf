@@ -74,3 +74,13 @@ variable "postgres_db" {
   type        = string
   description = "PostgreSQL database name to create"
 }
+
+variable "provisioning_user" {
+  type        = string
+  description = "User for Ansible provisioning"
+}
+
+variable "provisioning_public_key" {
+ type        = string
+ description = "Public key for provisioning user"
+}

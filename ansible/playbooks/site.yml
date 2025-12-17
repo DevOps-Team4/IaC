@@ -1,0 +1,4 @@
+---
+
+- import_playbook: bastion.yml
+- import_playbook: deploy-app.yml

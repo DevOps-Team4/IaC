@@ -1,0 +1,57 @@
+---
+- name: Bastion basic configuration
+  hosts: bastion-host
+  become: yes
+
+  tasks:
+    - name: Create team users
+      user:
+        name: "{{ item }}"
+        shell: /bin/bash
+        create_home: yes
+        groups: sudo
+        append: yes
+      loop: "{{ team_users }}"
+
+    - name: Add SSH keys for team users
+      authorized_key:
+        user: "{{ item.name }}"
+        key: "{{ item.key }}"
+        state: present
+      loop: "{{ team_ssh_keys }}"
+
+    - name: Allow team users sudo without password
+      copy:
+        dest: "/etc/sudoers.d/{{ item }}"
+        content: "{{ item }} ALL=(ALL) NOPASSWD:ALL\n"
+        mode: '0440'
+        validate: 'visudo -cf %s'
+      loop: "{{ team_users }}"
+
+    - name: Disable password authentication
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^#?PasswordAuthentication'
+        line: 'PasswordAuthentication no'
+      notify: Restart SSH
+
+    - name: Ensure SSH TCP forwarding is enabled (required for ProxyJump)
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^#?AllowTcpForwarding'
+        line: 'AllowTcpForwarding yes'
+      notify: Restart SSH
+
+
+    - name: Disable root login
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^#?PermitRootLogin'
+        line: 'PermitRootLogin no'
+      notify: Restart SSH
+
+  handlers:
+    - name: Restart SSH
+      systemd:
+        name: ssh
+        state: restarted
