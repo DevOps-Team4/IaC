@@ -6,10 +6,4 @@
 *.tfstate.*
 .terraform.lock.hcl
 terraform-sa-key.json
-
-.idea/
-.vscode/
-
-ansible/inventory.ini
-ansible/.vault_pass
-ansible/*.retry
+terraform-sa-key-backup.json
