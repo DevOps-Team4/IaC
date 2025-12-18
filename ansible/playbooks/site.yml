@@ -1,4 +1,4 @@
 ---
-
+- import_playbook: prepare-servers.yml
 - import_playbook: bastion.yml
 - import_playbook: deploy-app.yml
