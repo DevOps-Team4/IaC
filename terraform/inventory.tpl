@@ -17,7 +17,6 @@ database ansible_host=${db_ip}
 [all:vars]
 ansible_user=provisioning
 ansible_ssh_private_key_file=~/.ssh/provisioning_key
-ansible_ssh_common_args='-F ~/.ssh/config'
 postgres_user=${postgres_user}
 postgres_password=${postgres_password}
 postgres_db=${postgres_db}

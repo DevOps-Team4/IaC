@@ -1,0 +1,32 @@
+---
+- name: Prepare servers for automation
+  hosts: all
+  become: yes
+  
+  tasks:
+    - name: Disable unattended-upgrades permanently
+      systemd:
+        name: "{{ item }}"
+        state: stopped
+        enabled: no
+        masked: yes
+      loop:
+        - unattended-upgrades
+        - apt-daily.timer
+        - apt-daily-upgrade.timer
+      ignore_errors: yes
+
+    - name: Remove unattended-upgrades package
+      apt:
+        name: unattended-upgrades
+        state: absent
+      ignore_errors: yes
+
+    - name: Configure APT to not auto-update
+      copy:
+        dest: /etc/apt/apt.conf.d/20auto-upgrades
+        content: |
+          APT::Periodic::Update-Package-Lists "0";
+          APT::Periodic::Unattended-Upgrade "0";
+          APT::Periodic::Download-Upgradeable-Packages "0";
+          APT::Periodic::AutocleanInterval "0";
