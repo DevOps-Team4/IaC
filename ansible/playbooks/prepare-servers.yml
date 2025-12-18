@@ -1,32 +1,77 @@
 ---
-- name: Prepare servers for automation
+- name: Prepare servers for automation (disable apt auto-updates safely)
   hosts: all
   become: yes
-  
+  gather_facts: yes
+
+  vars:
+    apt_lock_files:
+      - /var/lib/dpkg/lock
+      - /var/lib/apt/lists/lock
+      - /var/cache/apt/archives/lock
+
   tasks:
-    - name: Disable unattended-upgrades permanently
+
+    # 1. Stop and disable all automatic apt mechanisms
+    - name: Stop and disable apt timers and services
       systemd:
         name: "{{ item }}"
         state: stopped
         enabled: no
         masked: yes
       loop:
-        - unattended-upgrades
         - apt-daily.timer
         - apt-daily-upgrade.timer
+        - apt-daily
+        - apt-daily-upgrade
+        - unattended-upgrades
       ignore_errors: yes
 
+    # 2. Wait for any currently running apt/dpkg processes to finish
+    - name: Wait until apt/dpkg locks are released
+      shell: |
+        for lock in {{ apt_lock_files | join(' ') }}; do
+          while fuser "$lock" >/dev/null 2>&1; do
+            sleep 3
+          done
+        done
+      args:
+        executable: /bin/bash
+      changed_when: false
+
+    # 3. Ensure dpkg is not left in half-configured state
+    - name: Ensure dpkg database is consistent
+      command: dpkg --configure -a
+      changed_when: false
+      
+    # 4. Remove unattended-upgrades package safely
+  
     - name: Remove unattended-upgrades package
       apt:
         name: unattended-upgrades
         state: absent
-      ignore_errors: yes
+        lock_timeout: 60
 
-    - name: Configure APT to not auto-update
+    # 5. Permanently disable all periodic apt actions
+    - name: Disable all periodic apt actions
       copy:
         dest: /etc/apt/apt.conf.d/20auto-upgrades
+        owner: root
+        group: root
+        mode: '0644'
         content: |
           APT::Periodic::Update-Package-Lists "0";
           APT::Periodic::Unattended-Upgrade "0";
           APT::Periodic::Download-Upgradeable-Packages "0";
           APT::Periodic::AutocleanInterval "0";
+
+    # 6. Disable release upgrade prompts
+    - name: Disable release upgrade prompts
+      copy:
+        dest: /etc/update-manager/release-upgrades
+        owner: root
+        group: root
+        mode: '0644'
+        content: |
+          [DEFAULT]
+          Prompt=never
