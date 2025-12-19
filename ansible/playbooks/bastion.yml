@@ -1,16 +1,16 @@
 ---
 - name: Bastion basic configuration
   hosts: bastion-host
-  become: yes
+  become: true
 
   tasks:
     - name: Create team users
       user:
         name: "{{ item }}"
         shell: /bin/bash
-        create_home: yes
+        create_home: true
         groups: sudo
-        append: yes
+        append: true
       loop: "{{ team_users }}"
 
     - name: Add SSH keys for team users

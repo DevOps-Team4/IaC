@@ -28,12 +28,20 @@ provider "google" {
 resource "tls_private_key" "provisioning_key" {
   algorithm = "RSA"
   rsa_bits  = 4096
+
+  lifecycle {
+    ignore_changes = all
+  }
 }
 
 resource "local_file" "provisioning_private_key" {
   content         = tls_private_key.provisioning_key.private_key_pem
   filename        = "${path.root}/.ssh/provisioning_key"
   file_permission = "0600"
+
+  lifecycle {
+    ignore_changes = all
+  }
 }
 
 # 1. Network Module - Creates VPC + Subnets + Routes

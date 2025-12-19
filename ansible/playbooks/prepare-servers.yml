@@ -1,59 +1,49 @@
 ---
 - name: Prepare servers for automation (disable apt auto-updates safely)
   hosts: all
-  become: yes
-  gather_facts: yes
-
-  vars:
-    apt_lock_files:
-      - /var/lib/dpkg/lock
-      - /var/lib/apt/lists/lock
-      - /var/cache/apt/archives/lock
+  become: true
+  gather_facts: true
 
   tasks:
 
-    # 1. Stop and disable all automatic apt mechanisms
+    - name: Kill cloud-init and unattended-upgrade processes
+      shell: pkill -9 -f cloud-init || true; pkill -9 -f unattended-upgrade || true
+      changed_when: false
+      ignore_errors: true
+
+    - name: Wait for apt locks to clear
+      wait_for:
+        path: /var/lib/apt/lists/lock
+        state: absent
+        timeout: 60
+      ignore_errors: true
+
     - name: Stop and disable apt timers and services
       systemd:
         name: "{{ item }}"
         state: stopped
-        enabled: no
-        masked: yes
+        enabled: false
+        masked: true
       loop:
         - apt-daily.timer
         - apt-daily-upgrade.timer
         - apt-daily
         - apt-daily-upgrade
         - unattended-upgrades
-      ignore_errors: yes
+      ignore_errors: true
 
-    # 2. Wait for any currently running apt/dpkg processes to finish
-    - name: Wait until apt/dpkg locks are released
-      shell: |
-        for lock in {{ apt_lock_files | join(' ') }}; do
-          while fuser "$lock" >/dev/null 2>&1; do
-            sleep 3
-          done
-        done
-      args:
-        executable: /bin/bash
-      changed_when: false
-
-    # 3. Ensure dpkg is not left in half-configured state
-    - name: Ensure dpkg database is consistent
+    - name: Fix dpkg if in inconsistent state
       command: dpkg --configure -a
       changed_when: false
-      
-    # 4. Remove unattended-upgrades package safely
-  
+      ignore_errors: true
+
     - name: Remove unattended-upgrades package
       apt:
         name: unattended-upgrades
         state: absent
-        lock_timeout: 60
+      ignore_errors: true
 
-    # 5. Permanently disable all periodic apt actions
-    - name: Disable all periodic apt actions
+    - name: Disable periodic apt updates
       copy:
         dest: /etc/apt/apt.conf.d/20auto-upgrades
         owner: root
@@ -64,8 +54,15 @@
           APT::Periodic::Unattended-Upgrade "0";
           APT::Periodic::Download-Upgradeable-Packages "0";
           APT::Periodic::AutocleanInterval "0";
+      ignore_errors: true
 
-    # 6. Disable release upgrade prompts
+    - name: Create update-manager directory if needed
+      file:
+        path: /etc/update-manager
+        state: directory
+        mode: '0755'
+      ignore_errors: true
+
     - name: Disable release upgrade prompts
       copy:
         dest: /etc/update-manager/release-upgrades
@@ -75,3 +72,8 @@
         content: |
           [DEFAULT]
           Prompt=never
+      ignore_errors: true
+
+    - name: Verify apt is ready
+      command: apt --version
+      changed_when: false

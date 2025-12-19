@@ -2,10 +2,10 @@
 # INSTALL DOCKER ON FRONTEND & BACKEND
 
 - hosts: web-server,app-server
-  become: yes
+  become: true
   vars:
-    ghcr_user: "{{ lookup('env', 'GHCR_USER') }}"
-    ghcr_token: "{{ lookup('env', 'GHCR_TOKEN') }}"
+    ghcr_user: "{{ ghcr_username | default(lookup('env', 'GHCR_USERNAME')) }}"
+    ghcr_token: "{{ ghcr_password | default(lookup('env', 'GHCR_PASSWORD')) }}"
 
   tasks:
     - name: Install apt prerequisites
@@ -17,7 +17,7 @@
           - lsb-release
           - apt-transport-https
         state: present
-        update_cache: yes
+        update_cache: true
 
     - name: Create keyrings directory
       file:
@@ -57,12 +57,12 @@
           - docker-buildx-plugin
           - docker-compose-plugin
         state: present
-        update_cache: yes
+        update_cache: true
 
     - name: Enable Docker
       systemd:
         name: docker
-        enabled: yes
+        enabled: true
         state: started
 
     - name: Login to GHCR
@@ -74,7 +74,9 @@
 
 - name: Setup PostgreSQL on database server
   hosts: postgres-db
-  become: yes
+  become: true
+  vars_files:
+    - ../group_vars/all/secret.yml
 
   tasks:
     - name: Install PostgreSQL and Python psycopg2
@@ -84,19 +86,19 @@
           - postgresql-contrib
           - python3-psycopg2
         state: present
-        update_cache: yes
+        update_cache: true
 
     - name: Ensure PostgreSQL is running
       systemd:
         name: postgresql
-        enabled: yes
+        enabled: true
         state: started
 
     - name: Install ACL tools (needed for become_user postgres)
       apt:
         name: acl
         state: present
-        update_cache: yes
+        update_cache: true
 
     - name: Set postgres user password
       become_user: postgres
@@ -152,7 +154,9 @@
 
 - name: Deploy Backend from GHCR
   hosts: app-server
-  become: yes
+  become: true
+  vars_files:
+    - ../group_vars/all/secret.yml
   vars:
     backend_image: "ghcr.io/devops-team4/todo-backend:01c3a57"
     db_host: "{{ postgres_host | default(hostvars[groups['postgres-db'][0]].ansible_host) }}"
@@ -183,7 +187,7 @@
 
 - name: Deploy Frontend from GHCR
   hosts: web-server
-  become: yes
+  become: true
   vars:
     frontend_image: "ghcr.io/devops-team4/todo-frontend:01c3a57"
 
@@ -229,14 +233,14 @@
 
 - name: Setup Nginx reverse proxy on frontend
   hosts: web-server
-  become: yes
+  become: true
 
   tasks:
     - name: Install Nginx
       apt:
         name: nginx
         state: present
-        update_cache: yes
+        update_cache: true
 
     - name: Configure Nginx reverse proxy
       copy:
@@ -281,7 +285,7 @@
     - name: Ensure Nginx is running
       systemd:
         name: nginx
-        enabled: yes
+        enabled: true
         state: started
 
     - name: Verify backend API is reachable through nginx (wait until ready)
